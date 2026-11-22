@@ -123,7 +123,7 @@ export default function SmartInput({
   }
 
   const iconBtn =
-    "grid h-11 w-11 shrink-0 place-items-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-30";
+    "grid h-12 w-12 shrink-0 place-items-center rounded-full sm:h-11 sm:w-11 border transition disabled:cursor-not-allowed disabled:opacity-30";
 
   return (
     <div className="rounded-3xl border border-neon-cyan/40 bg-panel/80 p-4 shadow-[0_10px_40px_-18px_rgb(91_91_240/.35)] backdrop-blur">
@@ -141,7 +141,7 @@ export default function SmartInput({
           }}
           autoFocus={autoFocus}
           rows={3}
-          placeholder="Выгрузи всё из головы: «завтра сдать отчёт, позвонить маме, купить кофе…»"
+          placeholder="Например: завтра сдать отчёт, позвонить маме, купить кофе…"
           className="scroll-thin w-full resize-none rounded-[28px] border border-line bg-void/70 px-5 py-4 text-base text-ink sm:text-sm outline-none transition placeholder:text-dim focus:border-neon-cyan"
         />
         {listening && <span className="absolute right-5 top-3 text-[10px] font-medium text-neon-pink">● запись</span>}
@@ -209,9 +209,9 @@ export default function SmartInput({
           type="button"
           onClick={submit}
           disabled={busy || (!text.trim() && !photo)}
-          className="h-11 rounded-full bg-neon-cyan px-6 text-sm font-bold text-white transition hover:bg-neon-violet disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-12 whitespace-nowrap rounded-full sm:h-11 bg-neon-cyan px-5 sm:px-6 text-sm font-bold text-white transition hover:bg-neon-violet disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "Разбираю…" : "✦ Разобрать с ИИ"}
+          {busy ? "Разбираю…" : <>✦ Разобрать<span className="hidden min-[360px]:inline"> с ИИ</span></>}
         </button>
         </Magnetic>
       </div>

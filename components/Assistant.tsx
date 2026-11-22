@@ -61,7 +61,7 @@ export default function Assistant({ tasks }: { tasks: Task[] }) {
   const keepSel = (e: React.MouseEvent) => e.preventDefault();
 
   const pill =
-    "flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium shadow-[0_8px_24px_-10px_rgb(91_91_240/.55)]";
+    "flex h-10 items-center gap-2 rounded-full border px-3.5 text-sm font-medium backdrop-blur sm:h-11 sm:px-4 shadow-[0_8px_24px_-10px_rgb(91_91_240/.55)]";
 
   return (
     <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-[60] flex flex-col items-end gap-2" onMouseDown={keepSel}>

@@ -58,7 +58,7 @@ export default function TaskCard({
           onPointerDown={(e) => cardRef.current && startCardDrag(e, cardRef.current, (q) => onMove(task, q), task.quadrant)}
           aria-label="Перетащить в другой квадрант"
           title="Потяни, чтобы перенести в другой квадрант"
-          className="-ml-1 grid h-8 w-6 shrink-0 cursor-grab touch-none select-none place-items-center rounded-md text-lg leading-none text-dim hover:bg-line/60 active:cursor-grabbing"
+          className="-ml-1 grid h-10 w-8 shrink-0 sm:h-8 sm:w-6 cursor-grab touch-none select-none place-items-center rounded-md text-lg leading-none text-dim hover:bg-line/60 active:cursor-grabbing"
         >
           ⠿
         </button>
@@ -67,7 +67,7 @@ export default function TaskCard({
           checked={task.done}
           onChange={() => onToggle(task)}
           aria-label="Выполнено"
-          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer appearance-none border border-dim bg-void checked:border-neon-green checked:bg-neon-green"
+          className="mt-1.5 h-6 w-6 shrink-0 cursor-pointer appearance-none rounded-md border-2 border-dim bg-void checked:border-neon-green checked:bg-neon-green sm:mt-1 sm:h-5 sm:w-5"
         />
         <div className="min-w-0 flex-1">
           <h3 className={`text-sm font-medium leading-snug ${task.done ? "line-through" : ""}`}>{task.title}</h3>
@@ -82,7 +82,7 @@ export default function TaskCard({
         <button
           onClick={() => onDelete(task)}
           aria-label="Удалить"
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-base text-dim opacity-70 transition hover:bg-neon-pink/10 hover:text-neon-pink group-hover:opacity-100"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-base text-dim sm:h-8 sm:w-8 opacity-70 transition hover:bg-neon-pink/10 hover:text-neon-pink group-hover:opacity-100"
         >
           ✕
         </button>
@@ -98,12 +98,12 @@ export default function TaskCard({
           </div>
           <ul className="space-y-1">
             {task.subtasks.map((s) => (
-              <li key={s.id} className="flex items-start gap-2 text-xs">
+              <li key={s.id} className="flex items-start gap-2.5 py-0.5 text-sm sm:text-xs">
                 <input
                   type="checkbox"
                   checked={s.done}
                   onChange={(e) => onToggleSubtask(task, s.id, e.target.checked)}
-                  className="mt-0.5 h-3 w-3 shrink-0 cursor-pointer appearance-none border border-dim bg-void checked:border-neon-cyan checked:bg-neon-cyan"
+                  className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer appearance-none rounded border-2 border-dim bg-void checked:border-neon-cyan checked:bg-neon-cyan sm:h-4 sm:w-4"
                 />
                 <span className={`flex-1 ${s.done ? "text-dim line-through" : ""}`}>{s.title}</span>
                 <span className="font-medium text-[10px] text-dim">{s.minutes}м</span>
@@ -135,7 +135,7 @@ export default function TaskCard({
                 disabled={active}
                 title={`→ ${q.title}`}
                 aria-label={`Переместить: ${q.title}`}
-                className="grid h-8 w-8 place-items-center rounded-lg border text-sm font-bold leading-none transition enabled:hover:scale-110"
+                className="grid h-10 w-10 place-items-center rounded-lg border text-sm font-bold sm:h-8 sm:w-8 leading-none transition enabled:hover:scale-110"
                 style={{
                   borderColor: q.color,
                   color: active ? "#fff" : q.color,
