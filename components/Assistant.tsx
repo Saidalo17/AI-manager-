@@ -64,7 +64,7 @@ export default function Assistant({ tasks }: { tasks: Task[] }) {
     "flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium shadow-[0_8px_24px_-10px_rgb(91_91_240/.55)]";
 
   return (
-    <div className="fixed bottom-4 right-4 z-[60] flex flex-col items-end gap-2" onMouseDown={keepSel}>
+    <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-[60] flex flex-col items-end gap-2" onMouseDown={keepSel}>
       {sel && (
         <Magnetic>
           <button
@@ -72,14 +72,14 @@ export default function Assistant({ tasks }: { tasks: Task[] }) {
             className={`${pill} max-w-[80vw] border-neon-cyan bg-neon-cyan text-white`}
             title={sel}
           >
-            🔊 Озвучить выделенное
+            🔊 Озвучить<span className="hidden sm:inline"> выделенное</span>
           </button>
         </Magnetic>
       )}
       <div className="flex items-center gap-2">
         {speaking && (
           <button onClick={() => stopSpeaking()} className={`${pill} border-neon-pink bg-panel text-neon-pink`} aria-label="Остановить озвучку">
-            ⏹ Стоп
+            ⏹<span className="hidden sm:inline"> Стоп</span>
           </button>
         )}
         <Magnetic>
@@ -88,7 +88,7 @@ export default function Assistant({ tasks }: { tasks: Task[] }) {
             className={`${pill} border-line bg-panel text-ink`}
             title="Голосовая сводка по задачам"
           >
-            📋 Сводка
+            📋<span className="hidden sm:inline"> Сводка</span>
           </button>
         </Magnetic>
         <Magnetic>
@@ -98,7 +98,7 @@ export default function Assistant({ tasks }: { tasks: Task[] }) {
             className={`${pill} ${on ? "border-neon-green bg-neon-green/15 text-neon-green" : "border-line bg-panel text-ink"}`}
             title="Ассистент озвучивает результаты ИИ"
           >
-            🎧 Ассистент: {on ? "вкл" : "выкл"}
+            🎧<span className="hidden sm:inline"> Ассистент: </span>{on ? "вкл" : "выкл"}
           </button>
         </Magnetic>
       </div>

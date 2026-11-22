@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { startCardDrag } from "@/lib/drag";
 import { QUADRANTS, type Quadrant, type Task } from "@/lib/types";
 
 function deadlineInfo(d: string | null): { label: string; cls: string } | null {
@@ -32,6 +33,7 @@ export default function TaskCard({
   onToggleSubtask: (t: Task, subId: string, done: boolean) => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
   const dl = deadlineInfo(task.deadline);
   const totalMin = task.subtasks.reduce((s, x) => s + x.minutes, 0);
   const subDone = task.subtasks.filter((s) => s.done).length;
@@ -47,11 +49,19 @@ export default function TaskCard({
 
   return (
     <article
-      draggable
-      onDragStart={(e) => e.dataTransfer.setData("text/task-id", task.id)}
+      ref={cardRef}
       className={`pop-in group rounded-xl border border-line bg-panel-2/80 p-3 transition hover:border-dim ${task.done ? "opacity-50" : ""}`}
     >
       <div className="flex items-start gap-2.5">
+        <button
+          type="button"
+          onPointerDown={(e) => cardRef.current && startCardDrag(e, cardRef.current, (q) => onMove(task, q), task.quadrant)}
+          aria-label="Перетащить в другой квадрант"
+          title="Потяни, чтобы перенести в другой квадрант"
+          className="-ml-1 grid h-8 w-6 shrink-0 cursor-grab touch-none select-none place-items-center rounded-md text-lg leading-none text-dim hover:bg-line/60 active:cursor-grabbing"
+        >
+          ⠿
+        </button>
         <input
           type="checkbox"
           checked={task.done}

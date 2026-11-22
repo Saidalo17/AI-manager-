@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { DND_EVENT } from "@/lib/drag";
 import { QUADRANTS, type Quadrant, type Task } from "@/lib/types";
 import TaskCard from "./TaskCard";
 
@@ -15,6 +16,12 @@ type Handlers = {
 export default function Matrix({ tasks, ...h }: { tasks: Task[] } & Handlers) {
   const [over, setOver] = useState<Quadrant | null>(null);
 
+  useEffect(() => {
+    const on = (e: Event) => setOver((e as CustomEvent<Quadrant | null>).detail);
+    window.addEventListener(DND_EVENT, on);
+    return () => window.removeEventListener(DND_EVENT, on);
+  }, []);
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {QUADRANTS.map((q) => {
@@ -22,18 +29,7 @@ export default function Matrix({ tasks, ...h }: { tasks: Task[] } & Handlers) {
         return (
           <section
             key={q.id}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setOver(q.id);
-            }}
-            onDragLeave={() => setOver(null)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setOver(null);
-              const id = e.dataTransfer.getData("text/task-id");
-              const t = tasks.find((x) => x.id === id);
-              if (t && t.quadrant !== q.id) h.onMove(t, q.id);
-            }}
+            data-quadrant={q.id}
             className="rounded-3xl shadow-[0_10px_40px_-18px_rgb(91_91_240/.35)] flex min-h-56 flex-col border bg-panel/70 p-4 backdrop-blur transition"
             style={{
               borderColor: over === q.id ? q.color : "var(--color-line)",
@@ -57,7 +53,7 @@ export default function Matrix({ tasks, ...h }: { tasks: Task[] } & Handlers) {
                   <span>
                     Пусто
                     <br />
-                    перетащи сюда задачу
+                    потяни сюда задачу за ⠿
                   </span>
                 </div>
               ) : (

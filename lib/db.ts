@@ -126,14 +126,15 @@ export async function insertTasks(items: NewTask[]): Promise<Task[]> {
 
 export async function updateTask(
   id: string,
-  patch: Partial<Pick<Task, "done" | "quadrant" | "title">>,
+  patch: Partial<Pick<Task, "done" | "quadrant" | "title" | "deadline">>,
 ): Promise<Task | null> {
   const c = await init();
   const sets: string[] = [];
-  const args: (string | number)[] = [];
+  const args: (string | number | null)[] = [];
   if (patch.done !== undefined) (sets.push("done = ?"), args.push(patch.done ? 1 : 0));
   if (patch.quadrant !== undefined) (sets.push("quadrant = ?"), args.push(patch.quadrant));
   if (patch.title !== undefined) (sets.push("title = ?"), args.push(patch.title));
+  if (patch.deadline !== undefined) (sets.push("deadline = ?"), args.push(patch.deadline));
   if (sets.length) await c.execute({ sql: `UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`, args: [...args, id] });
   return getTask(id);
 }

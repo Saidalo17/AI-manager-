@@ -142,7 +142,7 @@ export default function SmartInput({
           autoFocus={autoFocus}
           rows={3}
           placeholder="Выгрузи всё из головы: «завтра сдать отчёт, позвонить маме, купить кофе…»"
-          className="scroll-thin w-full resize-none rounded-[28px] border border-line bg-void/70 px-5 py-4 text-sm text-ink outline-none transition placeholder:text-dim focus:border-neon-cyan"
+          className="scroll-thin w-full resize-none rounded-[28px] border border-line bg-void/70 px-5 py-4 text-base text-ink sm:text-sm outline-none transition placeholder:text-dim focus:border-neon-cyan"
         />
         {listening && <span className="absolute right-5 top-3 text-[10px] font-medium text-neon-pink">● запись</span>}
       </div>

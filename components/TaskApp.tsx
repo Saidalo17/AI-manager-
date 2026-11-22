@@ -7,6 +7,7 @@ import Matrix from "./Matrix";
 import SmartInput from "./SmartInput";
 import Launch from "./Launch";
 import Assistant from "./Assistant";
+import DayAnalysis from "./DayAnalysis";
 import { announce } from "@/lib/speech";
 import { decomposedPhrase, parsedPhrase } from "@/lib/phrases";
 
@@ -77,6 +78,17 @@ export default function TaskApp() {
     });
   }
 
+  function moveToDate(ids: string[], date: string) {
+    const prev = new Map(tasks.filter((t) => ids.includes(t.id)).map((t) => [t.id, t.deadline]));
+    setTasks((ts) => ts.map((t) => (ids.includes(t.id) ? { ...t, deadline: date } : t)));
+    ids.forEach((id) =>
+      api.update(id, { deadline: date }).catch((e) => {
+        setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, deadline: prev.get(id) ?? null } : t)));
+        fail(e);
+      }),
+    );
+  }
+
   async function decompose(t: Task) {
     try {
       const subtasks = await api.decompose(t.id);
@@ -114,7 +126,7 @@ export default function TaskApp() {
     <>
     {swipe}
     <Assistant tasks={tasks} />
-    <main className="mx-auto max-w-6xl px-4 pb-32 pt-6 sm:px-6">
+    <main className="mx-auto max-w-6xl px-4 pb-36 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-6">
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-medium text-[11px] text-neon-pink">AI Task Manager · <span className="text-neon-green">● ИИ онлайн</span></p>
@@ -139,6 +151,8 @@ export default function TaskApp() {
       </header>
 
       <SmartInput onSubmit={parse} busy={parsing} autoFocus />
+
+      <DayAnalysis hasTasks={tasks.some((t) => !t.done)} onMove={moveToDate} onError={fail} />
 
       {error && (
         <div

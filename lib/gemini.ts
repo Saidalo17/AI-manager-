@@ -3,6 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { z } from "zod";
 import type { NewTask } from "./db";
 import { cleanPcm } from "./audio";
+import type { Task } from "./types";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 
@@ -199,4 +200,82 @@ function pcmToWav(pcm: Buffer, sampleRate: number): Buffer {
   h.write("data", 36);
   h.writeUInt32LE(pcm.length, 40);
   return Buffer.concat([h, pcm]);
+}
+
+// ---------- Ежедневный анализ нагрузки ----------
+
+export const DAY_CAPACITY_MIN = 360; // 6 часов полезной работы в день
+const DEFAULT_TASK_MIN = 30;
+
+const estimate = (t: Task) => {
+  const left = t.subtasks.filter((s) => !s.done).reduce((a, s) => a + s.minutes, 0);
+  return left > 0 ? left : DEFAULT_TASK_MIN;
+};
+
+export interface DayAnalysis {
+  verdict: "overloaded" | "balanced" | "light";
+  headline: string;
+  advice: string;
+  load: { minutes: number; capacity: number; count: number };
+  move: { id: string; title: string; reason: string }[];
+}
+
+export async function analyzeDay(tasks: Task[], today: string): Promise<DayAnalysis> {
+  // «на сегодня» = открытые задачи с дедлайном сегодня или раньше
+  const todays = tasks.filter((t) => !t.done && t.deadline && t.deadline <= today);
+  const minutes = todays.reduce((a, t) => a + estimate(t), 0);
+  const verdict: DayAnalysis["verdict"] =
+    minutes > DAY_CAPACITY_MIN ? "overloaded" : minutes < DAY_CAPACITY_MIN * 0.4 ? "light" : "balanced";
+  const load = { minutes, capacity: DAY_CAPACITY_MIN, count: todays.length };
+
+  const schema = z.object({
+    headline: z.string().min(1),
+    advice: z.string().min(1),
+    move: z.array(z.object({ id: z.string(), reason: z.string() })),
+  });
+  const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      headline: { type: Type.STRING, description: "Короткий вывод о дне, до 10 слов" },
+      advice: { type: Type.STRING, description: "Один живой совет, до 25 слов" },
+      move: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            reason: { type: Type.STRING, description: "Почему можно перенести, до 8 слов" },
+          },
+          required: ["id", "reason"],
+        },
+      },
+    },
+    required: ["headline", "advice", "move"],
+  };
+
+  const list = todays
+    .map((t) => `- id=${t.id} | ${t.title} | квадрант ${t.quadrant} | ~${estimate(t)} мин | срок ${t.deadline}`)
+    .join("\n");
+
+  const prompt = `Ты — тёплый, лаконичный помощник по планированию дня. Сегодня ${today}.
+Ёмкость дня: ${DAY_CAPACITY_MIN} минут. Задачи на сегодня и просроченные: ${todays.length}, суммарно ~${minutes} минут. Вердикт: ${verdict}.
+${list || "(задач на сегодня нет)"}
+
+Напиши headline и advice на русском, по-человечески, без канцелярита, с обращением на «ты».
+${
+  verdict === "overloaded"
+    ? `День перегружен. В move выбери задачи для переноса на завтра так, чтобы остаток влез в ${DAY_CAPACITY_MIN} минут. Переноси сначала q4, потом q3, потом q2; q1 не трогай, пока есть другие. Максимум 5 задач. Используй только id из списка.`
+    : "День не перегружен: move должен быть пустым массивом."
+}`;
+
+  const out = await askJson(prompt, responseSchema, schema);
+  const byId = new Map(todays.map((t) => [t.id, t]));
+  const move =
+    verdict === "overloaded"
+      ? out.move
+          .filter((m) => byId.has(m.id))
+          .slice(0, 5)
+          .map((m) => ({ id: m.id, title: byId.get(m.id)!.title, reason: m.reason.trim().split(/\s+/).slice(0, 8).join(" ") }))
+      : [];
+  return { verdict, headline: out.headline.trim(), advice: out.advice.trim(), load, move };
 }
