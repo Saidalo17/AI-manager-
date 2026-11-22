@@ -19,7 +19,8 @@ async function req<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  list: () => req<{ tasks: Task[] }>("/api/tasks").then((r) => r.tasks),
+  list: () => req<{ tasks: Task[]; orphans: number }>("/api/tasks"),
+  claim: () => req<{ claimed: number }>("/api/tasks/claim", { method: "POST" }),
   parse: (text: string, image?: { mimeType: string; data: string }) =>
     req<{ tasks: Task[] }>("/api/tasks/parse", { method: "POST", body: JSON.stringify({ text, image }) }).then((r) => r.tasks),
   update: (id: string, patch: Partial<Pick<Task, "done" | "quadrant" | "title" | "deadline">>) =>

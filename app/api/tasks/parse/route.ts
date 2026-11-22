@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { insertTasks } from "@/lib/db";
 import { parseTasks } from "@/lib/gemini";
 import { handle } from "@/lib/http";
+import { getOwner } from "@/lib/owner";
 
 export const maxDuration = 60;
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Слишком длинный текст (макс. 5000 символов)" }, { status: 400 });
     }
     const parsed = await parseTasks(text, image);
-    const tasks = await insertTasks(parsed);
+    const tasks = await insertTasks(parsed, await getOwner());
     return NextResponse.json({ tasks });
   } catch (e) {
     return handle(e);

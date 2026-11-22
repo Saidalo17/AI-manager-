@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { listTasks } from "@/lib/db";
 import { analyzeDay } from "@/lib/gemini";
 import { handle } from "@/lib/http";
+import { getOwner } from "@/lib/owner";
 
 export const maxDuration = 60;
 
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
     if (typeof today !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(today)) {
       return NextResponse.json({ error: "Нужна дата today (YYYY-MM-DD)" }, { status: 400 });
     }
-    const result = await analyzeDay(await listTasks(), today);
+    const result = await analyzeDay(await listTasks(await getOwner()), today);
     return NextResponse.json(result);
   } catch (e) {
     return handle(e);

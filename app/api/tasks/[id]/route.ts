@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { deleteTask, updateTask } from "@/lib/db";
 import { handle } from "@/lib/http";
+import { getOwner } from "@/lib/owner";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -20,7 +21,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     if (Object.keys(patch).length === 0) {
       return NextResponse.json({ error: "Нечего обновлять" }, { status: 400 });
     }
-    const task = await updateTask(id, patch);
+    const task = await updateTask(id, patch, await getOwner());
     if (!task) return NextResponse.json({ error: "Задача не найдена" }, { status: 404 });
     return NextResponse.json({ task });
   } catch (e) {
@@ -31,7 +32,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 export async function DELETE(_req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    await deleteTask(id);
+    await deleteTask(id, await getOwner());
     return NextResponse.json({ ok: true });
   } catch (e) {
     return handle(e);

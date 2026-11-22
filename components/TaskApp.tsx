@@ -25,13 +25,17 @@ export default function TaskApp() {
     setTimeout(() => setSwiping(false), 1250);
   }
   const [error, setError] = useState<string | null>(null);
+  const [orphans, setOrphans] = useState(0);
 
   const fail = useCallback((e: unknown) => setError(e instanceof Error ? e.message : "Что-то пошло не так"), []);
 
   useEffect(() => {
     api
       .list()
-      .then(setTasks)
+      .then((r) => {
+        setTasks(r.tasks);
+        setOrphans(r.orphans);
+      })
       .catch(fail)
       .finally(() => setLoading(false));
   }, [fail]);
@@ -109,6 +113,17 @@ export default function TaskApp() {
     });
   }
 
+  async function claim() {
+    try {
+      await api.claim();
+      const r = await api.list();
+      setTasks(r.tasks);
+      setOrphans(r.orphans);
+    } catch (e) {
+      fail(e);
+    }
+  }
+
   const done = tasks.filter((t) => t.done).length;
   const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
 
@@ -162,6 +177,17 @@ export default function TaskApp() {
           <span>⚠ {error}</span>
           <button onClick={() => setError(null)} aria-label="Закрыть">
             ✕
+          </button>
+        </div>
+      )}
+
+      {orphans > 0 && (
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-neon-yellow/60 bg-neon-yellow/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm">
+            Найдено <b>{orphans}</b> задач, созданных до появления личных списков. Забрать их себе? Другие пользователи их тогда не увидят.
+          </p>
+          <button onClick={claim} className="shrink-0 rounded-full bg-neon-yellow px-5 py-2.5 text-sm font-bold text-black">
+            Забрать себе
           </button>
         </div>
       )}

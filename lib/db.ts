@@ -44,7 +44,14 @@ async function init(): Promise<Client> {
       ],
       "write",
     )
-    .then(() => undefined);
+    .then(async () => {
+      // миграция: владелец задачи (у старых задач его нет — NULL)
+      const cols = await c.execute("PRAGMA table_info(tasks)");
+      if (!cols.rows.some((r) => String(r.name) === "owner")) {
+        await c.execute("ALTER TABLE tasks ADD COLUMN owner TEXT");
+      }
+      await c.execute("CREATE INDEX IF NOT EXISTS tasks_owner_idx ON tasks(owner)");
+    });
   try {
     await ready;
   } catch (e) {
@@ -75,11 +82,11 @@ const mapTask = (r: Row, subtasks: Subtask[]): Task => ({
   subtasks,
 });
 
-async function load(where = "", args: string[] = []): Promise<Task[]> {
+async function load(owner: string, where = "", args: string[] = []): Promise<Task[]> {
   const c = await init();
   const tasks = await c.execute({
-    sql: `SELECT * FROM tasks ${where} ORDER BY created_at DESC, rowid DESC`,
-    args,
+    sql: `SELECT * FROM tasks WHERE owner = ? ${where} ORDER BY created_at DESC, rowid DESC`,
+    args: [owner, ...args],
   });
   if (tasks.rows.length === 0) return [];
   const ids = tasks.rows.map((r) => String(r.id));
@@ -95,10 +102,10 @@ async function load(where = "", args: string[] = []): Promise<Task[]> {
   return tasks.rows.map((r) => mapTask(r, byTask.get(String(r.id)) ?? []));
 }
 
-export const listTasks = () => load();
+export const listTasks = (owner: string) => load(owner);
 
-export async function getTask(id: string): Promise<Task | null> {
-  return (await load("WHERE id = ?", [id]))[0] ?? null;
+export async function getTask(id: string, owner: string): Promise<Task | null> {
+  return (await load(owner, "AND id = ?", [id]))[0] ?? null;
 }
 
 export type NewTask = {
@@ -109,24 +116,25 @@ export type NewTask = {
   deadline: string | null;
 };
 
-export async function insertTasks(items: NewTask[]): Promise<Task[]> {
+export async function insertTasks(items: NewTask[], owner: string): Promise<Task[]> {
   if (items.length === 0) return [];
   const c = await init();
   const ids = items.map(() => crypto.randomUUID());
   await c.batch(
     items.map((t, i) => ({
-      sql: "INSERT INTO tasks (id, title, quadrant, category, reason, deadline) VALUES (?,?,?,?,?,?)",
-      args: [ids[i], t.title, t.quadrant, t.category, t.reason, t.deadline],
+      sql: "INSERT INTO tasks (id, title, quadrant, category, reason, deadline, owner) VALUES (?,?,?,?,?,?,?)",
+      args: [ids[i], t.title, t.quadrant, t.category, t.reason, t.deadline, owner],
     })),
     "write",
   );
-  const all = await load(`WHERE id IN (${ids.map(() => "?").join(",")})`, ids);
+  const all = await load(owner, `AND id IN (${ids.map(() => "?").join(",")})`, ids);
   return all;
 }
 
 export async function updateTask(
   id: string,
   patch: Partial<Pick<Task, "done" | "quadrant" | "title" | "deadline">>,
+  owner: string,
 ): Promise<Task | null> {
   const c = await init();
   const sets: string[] = [];
@@ -135,16 +143,16 @@ export async function updateTask(
   if (patch.quadrant !== undefined) (sets.push("quadrant = ?"), args.push(patch.quadrant));
   if (patch.title !== undefined) (sets.push("title = ?"), args.push(patch.title));
   if (patch.deadline !== undefined) (sets.push("deadline = ?"), args.push(patch.deadline));
-  if (sets.length) await c.execute({ sql: `UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`, args: [...args, id] });
-  return getTask(id);
+  if (sets.length) await c.execute({ sql: `UPDATE tasks SET ${sets.join(", ")} WHERE id = ? AND owner = ?`, args: [...args, id, owner] });
+  return getTask(id, owner);
 }
 
-export async function deleteTask(id: string): Promise<void> {
+export async function deleteTask(id: string, owner: string): Promise<void> {
   const c = await init();
   await c.batch(
     [
-      { sql: "DELETE FROM subtasks WHERE task_id = ?", args: [id] },
-      { sql: "DELETE FROM tasks WHERE id = ?", args: [id] },
+      { sql: "DELETE FROM subtasks WHERE task_id IN (SELECT id FROM tasks WHERE id = ? AND owner = ?)", args: [id, owner] },
+      { sql: "DELETE FROM tasks WHERE id = ? AND owner = ?", args: [id, owner] },
     ],
     "write",
   );
@@ -169,9 +177,26 @@ export async function replaceSubtasks(
   return rows.map((r) => ({ id: r.id, task_id: taskId, title: r.title, minutes: r.minutes, done: false, position: r.position }));
 }
 
-export async function setSubtaskDone(id: string, done: boolean): Promise<Subtask | null> {
+export async function setSubtaskDone(id: string, done: boolean, owner: string): Promise<Subtask | null> {
   const c = await init();
-  await c.execute({ sql: "UPDATE subtasks SET done = ? WHERE id = ?", args: [done ? 1 : 0, id] });
-  const r = await c.execute({ sql: "SELECT * FROM subtasks WHERE id = ?", args: [id] });
+  // шаг доступен только владельцу родительской задачи
+  const own = "task_id IN (SELECT id FROM tasks WHERE owner = ?)";
+  await c.execute({ sql: `UPDATE subtasks SET done = ? WHERE id = ? AND ${own}`, args: [done ? 1 : 0, id, owner] });
+  const r = await c.execute({ sql: `SELECT * FROM subtasks WHERE id = ? AND ${own}`, args: [id, owner] });
   return r.rows[0] ? mapSub(r.rows[0]) : null;
+}
+
+// ---------- Задачи без владельца (созданы до разделения по пользователям) ----------
+
+export async function countOrphans(): Promise<number> {
+  const c = await init();
+  const r = await c.execute("SELECT COUNT(*) AS n FROM tasks WHERE owner IS NULL");
+  return Number(r.rows[0]?.n ?? 0);
+}
+
+/** Передаёт все «ничьи» задачи текущему владельцу (по явной кнопке пользователя) */
+export async function claimOrphans(owner: string): Promise<number> {
+  const c = await init();
+  const r = await c.execute({ sql: "UPDATE tasks SET owner = ? WHERE owner IS NULL", args: [owner] });
+  return r.rowsAffected;
 }

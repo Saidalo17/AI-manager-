@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { listTasks } from "@/lib/db";
+import { countOrphans, listTasks } from "@/lib/db";
 import { handle } from "@/lib/http";
+import { getOwner } from "@/lib/owner";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    return NextResponse.json({ tasks: await listTasks() });
+    const owner = await getOwner();
+    const [tasks, orphans] = await Promise.all([listTasks(owner), countOrphans()]);
+    return NextResponse.json({ tasks, orphans });
   } catch (e) {
     return handle(e);
   }
