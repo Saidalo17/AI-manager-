@@ -72,7 +72,7 @@ export default function TaskCard({
         <button
           onClick={() => onDelete(task)}
           aria-label="Удалить"
-          className="shrink-0 px-1 text-dim opacity-60 transition hover:text-neon-pink group-hover:opacity-100"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-base text-dim opacity-70 transition hover:bg-neon-pink/10 hover:text-neon-pink group-hover:opacity-100"
         >
           ✕
         </button>
@@ -103,19 +103,19 @@ export default function TaskCard({
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-between gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         {task.subtasks.length === 0 ? (
           <button
             onClick={decompose}
             disabled={loading || task.done}
-            className="rounded-xl border border-neon-cyan/50 px-2 py-1 font-medium text-[10px] text-neon-cyan transition hover:bg-neon-cyan hover:text-white disabled:opacity-40"
+            className="rounded-xl border border-neon-cyan/50 px-4 py-2 text-sm font-medium text-neon-cyan transition hover:bg-neon-cyan hover:text-white disabled:opacity-40"
           >
             {loading ? "думаю…" : "⚡ Разбить на шаги"}
           </button>
         ) : (
           <span />
         )}
-        <div className="flex items-center gap-1" role="group" aria-label="Переместить в квадрант">
+        <div className="flex items-center gap-2" role="group" aria-label="Переместить в квадрант">
           {QUADRANTS.map((q, i) => {
             const active = q.id === task.quadrant;
             return (
@@ -125,7 +125,7 @@ export default function TaskCard({
                 disabled={active}
                 title={`→ ${q.title}`}
                 aria-label={`Переместить: ${q.title}`}
-                className="h-4 w-4 border font-medium text-[9px] leading-none transition enabled:hover:scale-125"
+                className="grid h-8 w-8 place-items-center rounded-lg border text-sm font-bold leading-none transition enabled:hover:scale-110"
                 style={{
                   borderColor: q.color,
                   color: active ? "#fff" : q.color,
