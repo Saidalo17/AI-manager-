@@ -142,3 +142,60 @@ export async function decomposeTask(title: string, category: string): Promise<{ 
   const out = await askJson(prompt, stepsResponseSchema, stepsSchema);
   return out.steps.map((s) => ({ title: s.title.trim().slice(0, 200), minutes: s.minutes }));
 }
+
+// ---------- Озвучка (нейронный голос) ----------
+
+const TTS_MODEL = process.env.GEMINI_TTS_MODEL || "gemini-3.8-flash-tts";
+const TTS_VOICE = process.env.GEMINI_TTS_VOICE || "Charon"; // спокойный низкий голос
+
+/** Возвращает WAV (PCM 16-bit mono). Прямой REST-вызов: так формат speechConfig точно корректен. */
+export async function synthesizeSpeech(text: string): Promise<Buffer> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("Не задан GEMINI_API_KEY");
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["AUDIO"],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`Озвучка недоступна (${res.status})`);
+  const json = (await res.json()) as {
+    candidates?: { content?: { parts?: { inlineData?: { data?: string; mimeType?: string } }[] } }[];
+  };
+  const part = json.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+  const b64 = part?.inlineData?.data;
+  if (!b64) throw new Error("Модель озвучки не вернула аудио");
+  const rate = Number(/rate=(\d+)/.exec(part?.inlineData?.mimeType ?? "")?.[1] ?? 24000);
+  return pcmToWav(Buffer.from(b64, "base64"), rate);
+}
+
+function pcmToWav(pcm: Buffer, sampleRate: number): Buffer {
+  const h = Buffer.alloc(44);
+  h.write("RIFF", 0);
+  h.writeUInt32LE(36 + pcm.length, 4);
+  h.write("WAVEfmt ", 8);
+  h.writeUInt32LE(16, 16);
+  h.writeUInt16LE(1, 20); // PCM
+  h.writeUInt16LE(1, 22); // mono
+  h.writeUInt32LE(sampleRate, 24);
+  h.writeUInt32LE(sampleRate * 2, 28);
+  h.writeUInt16LE(2, 32);
+  h.writeUInt16LE(16, 34);
+  h.write("data", 36);
+  h.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([h, pcm]);
+}

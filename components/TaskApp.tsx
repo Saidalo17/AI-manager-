@@ -8,6 +8,7 @@ import SmartInput from "./SmartInput";
 import Launch from "./Launch";
 import Assistant from "./Assistant";
 import { announce } from "@/lib/speech";
+import { decomposedPhrase, parsedPhrase } from "@/lib/phrases";
 
 export default function TaskApp() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -43,7 +44,7 @@ export default function TaskApp() {
       const created = await api.parse(text, image);
       setTasks((ts) => [...created, ...ts]);
       const urgent = created.filter((t) => t.quadrant === "q1").length;
-      announce(`Готово. Добавлено задач: ${created.length}.${urgent ? ` Срочных и важных: ${urgent}.` : ""}`);
+      announce(parsedPhrase(created.length, urgent));
     } catch (e) {
       fail(e);
       throw e;
@@ -80,7 +81,7 @@ export default function TaskApp() {
     try {
       const subtasks = await api.decompose(t.id);
       patch(t.id, (x) => ({ ...x, subtasks }));
-      announce(`Разбил задачу на шагов: ${subtasks.length}. Первый: ${subtasks[0]?.title ?? ""}`);
+      announce(decomposedPhrase(subtasks.length, subtasks[0]?.title ?? ""));
     } catch (e) {
       fail(e);
     }

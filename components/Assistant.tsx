@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Task } from "@/lib/types";
 import { assistantOn, setAssistantOn, speak, stopSpeaking, ttsSupported } from "@/lib/speech";
+import { greetPhrase, summaryPhrase } from "@/lib/phrases";
 import Magnetic from "./Magnetic";
 
 function getSelectedText(): string {
@@ -16,13 +17,8 @@ function getSelectedText(): string {
 
 function summary(tasks: Task[]): string {
   const open = tasks.filter((t) => !t.done);
-  if (tasks.length === 0) return "Задач пока нет. Надиктуйте или напишите, что нужно сделать.";
-  const urgent = open.filter((t) => t.quadrant === "q1");
-  let s = `Всего задач ${tasks.length}, выполнено ${tasks.length - open.length}.`;
-  if (urgent.length) s += ` Срочных и важных ${urgent.length}: ${urgent.map((t) => t.title).join(", ")}.`;
-  else if (open.length) s += " Срочных задач нет. Можно заняться важным.";
-  else s += " Всё сделано, отличная работа!";
-  return s;
+  const urgent = open.filter((t) => t.quadrant === "q1").map((t) => t.title);
+  return summaryPhrase(tasks.length, tasks.length - open.length, urgent, open.length);
 }
 
 export default function Assistant({ tasks }: { tasks: Task[] }) {
@@ -57,7 +53,7 @@ export default function Assistant({ tasks }: { tasks: Task[] }) {
   function toggle() {
     const next = !on;
     setAssistantOn(next);
-    if (next) speak("Ассистент включён. Выделите любой текст, и я его прочитаю.");
+    if (next) speak(greetPhrase());
     else stopSpeaking();
   }
 
@@ -82,7 +78,7 @@ export default function Assistant({ tasks }: { tasks: Task[] }) {
       )}
       <div className="flex items-center gap-2">
         {speaking && (
-          <button onClick={stopSpeaking} className={`${pill} border-neon-pink bg-panel text-neon-pink`} aria-label="Остановить озвучку">
+          <button onClick={() => stopSpeaking()} className={`${pill} border-neon-pink bg-panel text-neon-pink`} aria-label="Остановить озвучку">
             ⏹ Стоп
           </button>
         )}
