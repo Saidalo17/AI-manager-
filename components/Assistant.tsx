@@ -1,0 +1,111 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { Task } from "@/lib/types";
+import { assistantOn, setAssistantOn, speak, stopSpeaking, ttsSupported } from "@/lib/speech";
+import Magnetic from "./Magnetic";
+
+function getSelectedText(): string {
+  const a = document.activeElement;
+  if (a instanceof HTMLTextAreaElement || (a instanceof HTMLInputElement && a.type === "text")) {
+    const s = a.value.slice(a.selectionStart ?? 0, a.selectionEnd ?? 0).trim();
+    if (s) return s;
+  }
+  return window.getSelection()?.toString().trim() ?? "";
+}
+
+function summary(tasks: Task[]): string {
+  const open = tasks.filter((t) => !t.done);
+  if (tasks.length === 0) return "Задач пока нет. Надиктуйте или напишите, что нужно сделать.";
+  const urgent = open.filter((t) => t.quadrant === "q1");
+  let s = `Всего задач ${tasks.length}, выполнено ${tasks.length - open.length}.`;
+  if (urgent.length) s += ` Срочных и важных ${urgent.length}: ${urgent.map((t) => t.title).join(", ")}.`;
+  else if (open.length) s += " Срочных задач нет. Можно заняться важным.";
+  else s += " Всё сделано, отличная работа!";
+  return s;
+}
+
+export default function Assistant({ tasks }: { tasks: Task[] }) {
+  const [supported, setSupported] = useState(false);
+  const [on, setOn] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [sel, setSel] = useState("");
+
+  useEffect(() => {
+    setSupported(ttsSupported());
+    setOn(assistantOn());
+    const onSel = () => setSel(getSelectedText());
+    const onSpeech = (e: Event) => setSpeaking((e as CustomEvent<boolean>).detail);
+    const onAssistant = (e: Event) => setOn((e as CustomEvent<boolean>).detail);
+    document.addEventListener("selectionchange", onSel);
+    document.addEventListener("keyup", onSel);
+    document.addEventListener("mouseup", onSel);
+    window.addEventListener("speech-state", onSpeech);
+    window.addEventListener("assistant-change", onAssistant);
+    return () => {
+      document.removeEventListener("selectionchange", onSel);
+      document.removeEventListener("keyup", onSel);
+      document.removeEventListener("mouseup", onSel);
+      window.removeEventListener("speech-state", onSpeech);
+      window.removeEventListener("assistant-change", onAssistant);
+      stopSpeaking();
+    };
+  }, []);
+
+  if (!supported) return null;
+
+  function toggle() {
+    const next = !on;
+    setAssistantOn(next);
+    if (next) speak("Ассистент включён. Выделите любой текст, и я его прочитаю.");
+    else stopSpeaking();
+  }
+
+  // mousedown не должен сбрасывать выделение, пока нажимаем кнопки ассистента
+  const keepSel = (e: React.MouseEvent) => e.preventDefault();
+
+  const pill =
+    "flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium shadow-[0_8px_24px_-10px_rgb(91_91_240/.55)]";
+
+  return (
+    <div className="fixed bottom-4 right-4 z-[60] flex flex-col items-end gap-2" onMouseDown={keepSel}>
+      {sel && (
+        <Magnetic>
+          <button
+            onClick={() => speak(sel)}
+            className={`${pill} max-w-[80vw] border-neon-cyan bg-neon-cyan text-white`}
+            title={sel}
+          >
+            🔊 Озвучить выделенное
+          </button>
+        </Magnetic>
+      )}
+      <div className="flex items-center gap-2">
+        {speaking && (
+          <button onClick={stopSpeaking} className={`${pill} border-neon-pink bg-panel text-neon-pink`} aria-label="Остановить озвучку">
+            ⏹ Стоп
+          </button>
+        )}
+        <Magnetic>
+          <button
+            onClick={() => speak(summary(tasks))}
+            className={`${pill} border-line bg-panel text-ink`}
+            title="Голосовая сводка по задачам"
+          >
+            📋 Сводка
+          </button>
+        </Magnetic>
+        <Magnetic>
+          <button
+            onClick={toggle}
+            aria-pressed={on}
+            className={`${pill} ${on ? "border-neon-green bg-neon-green/15 text-neon-green" : "border-line bg-panel text-ink"}`}
+            title="Ассистент озвучивает результаты ИИ"
+          >
+            🎧 Ассистент: {on ? "вкл" : "выкл"}
+          </button>
+        </Magnetic>
+      </div>
+    </div>
+  );
+}
