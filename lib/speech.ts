@@ -131,8 +131,19 @@ export function stopSpeaking(notify = true): void {
   abort?.abort();
   abort = null;
   if (audio) {
-    audio.pause();
+    // плавно гасим громкость, чтобы остановка не щёлкала
+    const a = audio;
     audio = null;
+    a.onended = null;
+    let v = a.volume;
+    const t = setInterval(() => {
+      v = Math.max(0, v - 0.25);
+      a.volume = v;
+      if (v <= 0) {
+        clearInterval(t);
+        a.pause();
+      }
+    }, 15);
   }
   if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
   if (notify && typeof window !== "undefined") emit(false);

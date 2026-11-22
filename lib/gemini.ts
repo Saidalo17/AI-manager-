@@ -180,7 +180,72 @@ export async function synthesizeSpeech(text: string): Promise<Buffer> {
   const b64 = part?.inlineData?.data;
   if (!b64) throw new Error("Модель озвучки не вернула аудио");
   const rate = Number(/rate=(\d+)/.exec(part?.inlineData?.mimeType ?? "")?.[1] ?? 24000);
-  return pcmToWav(Buffer.from(b64, "base64"), rate);
+  return pcmToWav(cleanPcm(Buffer.from(b64, "base64"), rate), rate);
+}
+
+/**
+ * Gemini TTS иногда добавляет в начало и конец записи короткие громкие плоские всплески шума —
+ * это и есть неприятный щелчок в конце реплики. Снимаем такие всплески по одному (с обоих концов),
+ * затем делаем плавное нарастание/затухание и добавляем тишину, чтобы плеер не щёлкал.
+ * Если после чистки осталось меньше половины записи — возвращаем исходную с одними фейдами.
+ */
+function cleanPcm(pcm: Buffer, rate: number): Buffer {
+  const total = Math.floor(pcm.length / 2);
+  const win = Math.round(rate / 100); // окно 10 мс
+  const nw = Math.floor(total / win);
+  const level: number[] = [];
+  for (let w = 0; w < nw; w++) {
+    let t = 0;
+    for (let i = w * win; i < (w + 1) * win; i++) t += pcm.readInt16LE(i * 2) ** 2;
+    level.push(Math.sqrt(t / win));
+  }
+  const SILENT = 50;
+  const MAX_BURST = 20; // ≤ 200 мс
+
+  // всплеск = короткий непрерывный отрезок громкого и почти ровного звука
+  const isBurst = (a: number, z: number) => {
+    const seg = level.slice(a, z);
+    if (seg.length === 0 || seg.length > MAX_BURST) return false;
+    const mean = seg.reduce((x, y) => x + y, 0) / seg.length;
+    if (mean < 14000) return false;
+    if (seg.length < 5) return true;
+    const sd = Math.sqrt(seg.reduce((x, y) => x + (y - mean) ** 2, 0) / seg.length);
+    return sd / mean < 0.2;
+  };
+
+  let lo = 0;
+  let hi = nw;
+  // хвост
+  for (;;) {
+    let e = hi;
+    while (e > lo && level[e - 1] < SILENT) e--;
+    let s0 = e;
+    while (s0 > lo && level[s0 - 1] >= SILENT) s0--;
+    if (e > lo && isBurst(s0, e)) hi = s0;
+    else break;
+  }
+  // начало
+  for (;;) {
+    let s0 = lo;
+    while (s0 < hi && level[s0] < SILENT) s0++;
+    let e = s0;
+    while (e < hi && level[e] >= SILENT) e++;
+    if (s0 < hi && isBurst(s0, e)) lo = e;
+    else break;
+  }
+
+  let out = Buffer.from(pcm.subarray(lo * win * 2, hi * win * 2));
+  if (out.length < pcm.length * 0.5) out = Buffer.from(pcm); // подстраховка: не режем речь
+
+  const n = out.length / 2;
+  const fade = Math.min(Math.round(rate * 0.02), Math.floor(n / 2)); // 20 мс
+  for (let i = 0; i < fade; i++) {
+    const g = i / fade;
+    out.writeInt16LE(Math.round(out.readInt16LE(i * 2) * g), i * 2);
+    const j = n - 1 - i;
+    out.writeInt16LE(Math.round(out.readInt16LE(j * 2) * g), j * 2);
+  }
+  return Buffer.concat([out, Buffer.alloc(Math.round(rate * 0.12) * 2)]); // +120 мс тишины
 }
 
 function pcmToWav(pcm: Buffer, sampleRate: number): Buffer {
